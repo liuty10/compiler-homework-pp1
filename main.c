@@ -24,7 +24,7 @@
 #include <string.h>
 
 #define MAX_LINE_SIZE 1000
-#define MAX_TOKEN_SIZE 32
+#define MAX_TOKEN_SIZE 1000
 #define true 1
 #define false 0
 #define bool int
@@ -45,17 +45,14 @@
 #define T_LessEqual	13
 #define T_GreaterEqual	14
 #define T_Equal		15
-#define T_StringConstant 16
-#define T_Identifier 	17
-#define T_Unknown	18
+#define T_NotEqual	16
+#define T_StringConstant 17
+#define T_Identifier 	18
+#define T_Others	19
+#define T_Unknown	20
 
-struct token_info{
-	char token_conten[MAX_TOKEN_SIZE];
-	int  row;
-	int  left;
-	int  right;
-	int  Category;
-};
+int possible_category = 0;
+int deterministic_category = 0;
 
 void print_usage(){
 	printf("Usage: ./dcc -t -i inputfile -o [outputfile]\n");
@@ -80,6 +77,7 @@ bool isDelimiter(char ch){
 }
 
 bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
+	deterministic_category = T_NULL;
 	if(possible_category == T_NULL){
 		hex_flag = false;
 		science_flag = false;
@@ -88,26 +86,33 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 		else if(*ch > 'A' && *ch < 'z' || *ch == '_')
 			possible_category = T_Identifier;
 		else if(isDelimiter(inputLine[*right])==true){	//we stop here
-			if(*ch == '!' || *ch == '>' || *ch == '<'){
+			if(*ch == '!' || *ch == '>' || *ch == '<' || *ch == '='){
 				if(right==len || *(ch+1)!='='){
 					tokenBuffer[0]=*ch;
 					tokenBuffer[1]='\0';
+					deterministic_category = T_Others;
 				}else{
 					tokenBuffer[0]=*ch;
 					tokenBuffer[1]='=';
 					tokenBuffer[2]='\0';
 					(*right)++;
+					if(*ch == '!') deterministic_category = T_NotEqual;
+					if(*ch == '>') deterministic_category = T_GreaterEqual;
+					if(*ch == '<') deterministic_category = T_LessEqual;
+					if(*ch == '=') deterministic_category = T_Equal;
 				}
 				return true;
 			}else if(*ch == '.'){
 				tokenBuffer[0]=*ch;
 				tokenBuffer[1]='\0';
+				deterministic_category = T_Others;
 				return true;
 			}else if(*ch == '"'){// continuing until the end of line or next quote. Or, we need T_String
 				possible_category = T_StringConstant;
 			}else{
 				tokenBuffer[0]=*ch;
 				tokenBuffer[1]='\0';
+				deterministic_category = T_Others;
 				return true;
 			}
 		}else{
@@ -115,6 +120,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 			possible_category = T_NULL;
 			tokenBuffer[0]=*ch;
 			tokenBuffer[1]='\0';
+			deterministc_category = T_Unknown;
 			print_errors();
 			return true;
 		}
@@ -137,6 +143,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 					tokenBuffer[*right-left]='\0';
 					(*right)--;
 				}
+				deterministic_category = T_IntConstant;
 				possible_category = T_NULL;
 				return true;
 			}
@@ -148,11 +155,13 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 			}else if(*ch == '"'){// continuing until the end of line or next quote. Or, we need T_String
 				tokenBuffer[*right-left] = '\0';
 				(*right)--;
+				deterministic_category = T_IntConstant;
 				possible_category = T_NULL;
 				return true;
 			}else{
 				tokenBuffer[*right - left]='\0';
 				(*right)--;
+				deterministic_category = T_IntConstant;
 				possible_category = T_NULL;
 				return true;
 			}
@@ -160,6 +169,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 			print_errors();
 			tokenBuffer[*right-left]='\0';
 			(*right)--;
+			deterministic_category = T_IntConstant;
 			possible_category = T_NULL;
 			return true;
 		}
@@ -171,35 +181,62 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 			return false;
 		}else if(*ch > 'A' && *ch < 'z' || *ch == '_'){
 			if(science_flag == true){
-
+				//*ch-1 is e or E, back 1 split
+				if(*(ch-1) == 'e' || *(ch-1) == 'E'){
+					tokenBuffer[*right-left-1]='\0';
+					*right = *right - 2;
+					deterministic_category = T_DoubleConstant;
+					possible_category = T_NULL;
+					return true;//double
+				}
+				//*ch-1 is + or -, back 2 split
+				if(*(ch-1) == '+' || *(ch-1) == '-'){
+					tokenBuffer[*right-left-2]='\0';
+					*right = *right - 3;
+					deterministic_category = T_DoubleConstant;
+					possible_category = T_NULL;
+					return true;//double
+				}
+				//*ch-1 is digit,  split
+				if(*(ch-1) >= '0' && *(ch-1) <= '9'){
+					tokenBuffer[*right-left]='\0';
+					*right = *right - 1;
+					deterministic_category = T_DoubleConstant;
+					possible_category = T_NULL;
+					return true;//double
+				}
 			}else if(*ch == 'e' || *ch == 'E'){
 				science_flag = true;//do not change category yet.
 				return false;
 			}else{//need to change category
 				tokenBuffer[*right-left]='\0';
 				(*right)--;
+			        deterministic_category = T_DoubleConstant;
 				possible_category = T_NULL;
 				return true;
 			}
 		}else if(isDelimiter(inputLine[*right])==true){	//we stop here
 			if(science_flag == true){
-			if(*ch == '+'){
+			if((*ch == '+' || *ch == '-') && (*(ch-1) == 'e' || *(ch-1)=='E')){
 				tokenBuffer[*right-left]=*ch;
 				possible_category = T_DoubleConstant;
 				return false;
-			}else if(*ch == '-'){// continuing until the end of line or next quote. Or, we need T_String
-				tokenBuffer[*right-left] = '\0';
-				(*right)--;
+			}else if(*(ch-1)=='e'||*(ch-1)=='E'){// continuing until the end of line or next quote. Or, we need T_String
+				tokenBuffer[*right-left-1] = '\0';
+				*right = *right-2;
+			        deterministic_category = T_DoubleConstant;
 				possible_category = T_NULL;
 				return true;
-			}else{
-				tokenBuffer[*right - left]='\0';
-				(*right)--;
+			}else if(*(ch-1)=='+' || *(ch-1)=='-'){
+				tokenBuffer[*right - left -2]='\0';
+				*right = (*right)-3;
+			        deterministic_category = T_DoubleConstant;
 				possible_category = T_NULL;
 				return true;
 			}}else{
 				tokenBuffer[*right-left] = '\0';
 				(*right)--;
+			        deterministic_category = T_DoubleConstant;
 				possible_category = T_NULL
 				return true
 			}
@@ -207,6 +244,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 			print_errors();
 			tokenBuffer[*right-left]='\0';
 			(*right)--;
+			deterministic_category = T_DoubleConstant;
 			possible_category = T_NULL;
 			return true;
 		}
@@ -215,51 +253,33 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 	}
 
 	if(possible_category == T_Identifier){
-
+		if(isDelimiter(inputLine[*right])==true){
+			tokenBuffer[*right-left] = '\0';
+			(*right)--;
+			deterministic_category = T_Identifier;
+			possible_category = T_NULL;
+			return true;
+		}else{
+			tokenBuffer[*right - left] = *ch;
+			return false;
+		}	
 	}
 	
 	if(possible_category == T_StringConstant){
-
+		if(*ch == '"'){
+			tokenBuffer[*right-left] = *ch;
+			tokenBuffer[*right-left+1] = '\0';
+			deterministic_category = T_StringConstant;
+			possible_category = T_NULL;
+			return true;
+		}else if(right==len){
+			print_error();
+			deterministic_category = T_StringConstant;//need further discuss
+			possible_category = T_NULL;
+			return true;
+		}
 	}
 
-	if(right == stringLen){
-		tokenBuffer[right-left]='\0';
-		return true;
-	}else if(isDelimiter(inputLine[right])==true){	//we stop here
-		tokenBuffer[right-left]='\0';		// we have have deterministic category---saves in deterministic category
-		fputs(tokenBuffer, outputfile);
-		fputc('\n', outputfile);
-                if(inputLine[right]!=' '){
-			fputc(inputLine[right], outputfile); // we know what it is.
-			fputc('\n', outputfile);
-		}
-		right++;
-		left = right;
-	}else if(){//it is normal character, we should determine what category it is.
-		for(i=left; i<right; i++){
-			tokenBuffer[i-left]=inputLine[i];
-		}
-		tokenBuffer[i-left]='\0';
-		fputs(tokenBuffer, outputfile);
-		left = right;
-	}else{
-		tokenBuffer[right-left]=inputLine[right];
-		if(possible_category == T_NULL){
-			if(ch > '0' && ch <'9')
-				possible_category = T_IntConstant;
-			else if(ch > 'A' && ch < 'z')
-				possible_category = T_Identifier;
-			else
-				possible_category = T_Unknown;
-		}else if(possible_category == T_IntConstant){
-			if(ch >= 'A' && ch <= 'z'){
-				if(ch == 'x' || ch == 'X'){
-					possible_hex_flag = true;
-				}else if(ch > 'a' || ch < 'f' || ch > 'A' || ch < 'F')
-			}
-		}
-		right++;
-	}
 	return false;
 }
 
