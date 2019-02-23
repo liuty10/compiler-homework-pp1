@@ -29,6 +29,7 @@
 #define false 0
 #define bool int
 
+// Define token types
 #define T_NULL	 	0
 #define T_IntConstant 	1
 #define T_String 	2
@@ -51,11 +52,18 @@
 #define T_Others	19
 #define T_Unknown	20
 
-int possible_category = 0;
-int deterministic_category = 0;
+//Define Error types
+#define ERR_NULL		0
+#define ERR_Unterminated	1
+#define ERR_TooLongVariable  	2
+#define ERR_UnknownSymbol  	3
+#define ERR_Others	  	4
+
+int  possible_category = 0;
+int  deterministic_category = 0;
 bool hex_flag = false;
 bool science_flag = false;
-bool space_flag = false;
+int  err_num = 0;
 
 void print_usage(){
 	printf("Usage: ./dcc -t -i inputfile -o [outputfile]\n");
@@ -133,7 +141,8 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 			tokenBuffer[0]=*ch;
 			tokenBuffer[1]='\0';
 			deterministic_category = T_Unknown;
-			print_errors();
+			err_num = ERR_Unknown;
+			//print_errors();
 			return true;
 		}
 		return false;	
@@ -184,7 +193,8 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 				return true;
 			}
 		}else{
-			print_errors();
+			//print_errors();
+			err_num = ERR_Unknown;
 			tokenBuffer[(*pright)-(*pleft)]='\0';
 			(*pright)--;
 			deterministic_category = T_IntConstant;
@@ -267,7 +277,8 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 				return true;
 			}
 		}else{
-			print_errors();
+			//print_errors();
+			err_num = ERR_UnknownSymbol;
 			tokenBuffer[(*pright)-(*pleft)]='\0';
 			(*pright)--;
 			deterministic_category = T_DoubleConstant;
@@ -300,7 +311,8 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 			return true;
 		}else if(*ch=='\n'||(*pright)==len){
 			tokenBuffer[(*pright)-(*pleft)] = '\0';
-			print_errors();
+			err_num = ERR_Unterminated;
+			//print_errors();
 			deterministic_category = T_StringConstant;//need further discuss
 			possible_category = T_NULL;
 			return true;
@@ -319,6 +331,9 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 	while(right < stringLen && left <=right){
 		if(newTokenEnd(tokenBuffer,&inputLine[right],&left, &right, stringLen-1)){
 			fputs(tokenBuffer, outputfile);
+			if(err_num!=ERR_NULL){
+				print_errrors(err_num, tokenBuffer);
+			}
 			switch(deterministic_category){
 				case T_IntConstant:
 					printf("%s\t\t, line %d cols %d-%d is T_IntConstant\n", tokenBuffer, cur_row, left+1, right+1);
@@ -385,6 +400,7 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 			}
 			right++;
 			left = right;
+			err_num = ERR_NULL;
 		}else{//no new token, we should increase
 			tokenBuffer[right-left]=inputLine[right];
 			right++;
