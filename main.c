@@ -74,7 +74,8 @@ bool isDelimiter(char ch){
 	    ch == '[' || ch == ']' || ch == '{' || ch == '}' ||
 	    ch == '!' || ch == '@' || ch == '#' || ch == '$' ||
 	    ch == '^' || ch == '?' || ch == '|' || ch == '~' ||
-	    ch == '.' || ch == '"' || ch == ':' || ch == '\n')
+	    ch == '.' || ch == '"' || ch == ':' || ch == '\n'||
+	    ch == '&' || ch == '%' || ch == '`')
 		return true;
 	return false;
 }
@@ -141,7 +142,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 		if(*ch >= '0' && *ch <='9'){
 			return false;
 		}else if(*ch >= 'A' && *ch <= 'z' || *ch == '_'){
-			if(hex_flag == false && (*ch == 'x' || *ch == 'X')){
+			if(hex_flag == false && (*ch == 'x' || *ch == 'X')&&(*(ch-1) == '0')){
 				hex_flag = true;//do not change category yet.
 				return false;
 			}else if(hex_flag == true && ((*ch >='a' && *ch <= 'f')||(*ch >='A' && *ch <='F')||(*ch>='0' && *ch <='9'))){
@@ -170,9 +171,14 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 				possible_category = T_NULL;
 				return true;
 			}else{
-				tokenBuffer[(*pright) - (*pleft)]='\0';
-				//if(*ch != ' '&& *ch !='\n')
-				(*pright)--;
+				if(hex_flag==true && (*(ch-1)=='x' || *(ch-1)=='X')){
+					tokenBuffer[(*pright) - (*pleft)-1]='\0';
+					(*pright)-=2;
+				}else{
+					tokenBuffer[(*pright) - (*pleft)]='\0';
+					//if(*ch != ' '&& *ch !='\n')
+					(*pright)--;
+				}
 				deterministic_category = T_IntConstant;
 				possible_category = T_NULL;
 				return true;
@@ -312,7 +318,7 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 	while(right < stringLen && left <=right){
 		if(newTokenEnd(tokenBuffer,&inputLine[right],&left, &right, stringLen-1)){
 			fputs(tokenBuffer, outputfile);
-			printf("%s\t, row:%d\t, start:%d\t, end:%d\t\t, category:%d\n", tokenBuffer, cur_row, left, right, deterministic_category);
+			printf("%s\t\t, line %d cols %d-%d is category:%d\n", tokenBuffer, cur_row, left+1, right+1, deterministic_category);
 			right++;
 			left = right;
 		}else{//no new token, we should increase
