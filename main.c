@@ -1,0 +1,343 @@
+/* This is main file for decaf compiler: dcc
+ * Author: Tianyi Liu
+ * Email: liuty10@gmail.com
+*/
+
+/*
+ Goal : Design a scanner to deal with decaf source code into TOKON.
+ Task1: read source code from files line by line.
+ Task2: for each line, read characters one by one to split the whole line into pre-TOKONS.
+ Task3: For each pre-token, you need further process to get the final TOKON.
+ Task4: Write the corresponding tokon back to a result file.
+*/
+
+/*
+ How to use dcc (decaf gcc)?
+ Goal: it should be simallar to gcc.
+ Example: dcc -t input -o [output]
+
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <getopt.h>
+#include <string.h>
+
+#define MAX_LINE_SIZE 1000
+#define MAX_TOKEN_SIZE 32
+#define true 1
+#define false 0
+#define bool int
+
+#define T_NULL	 	0
+#define T_IntConstant 	1
+#define T_String 	2
+#define T_Void		3
+#define T_Int		4
+#define T_Double	5
+#define T_While		6
+#define T_If		7
+#define T_Else		8
+#define T_Return	9
+#define T_Break		10
+#define T_BoolConstant	11
+#define T_Or		12
+#define T_LessEqual	13
+#define T_GreaterEqual	14
+#define T_Equal		15
+#define T_StringConstant 16
+#define T_Identifier 	17
+#define T_Unknown	18
+
+struct token_info{
+	char token_conten[MAX_TOKEN_SIZE];
+	int  row;
+	int  left;
+	int  right;
+	int  Category;
+};
+
+void print_usage(){
+	printf("Usage: ./dcc -t -i inputfile -o [outputfile]\n");
+	printf("\n");
+	return;
+}
+void print_errors(){
+	printf("There is an error\n");
+	return;
+}
+
+bool isDelimiter(char ch){
+	if (ch == ' ' || ch == '+' || ch == '-' || ch == '*' ||
+	    ch == '/' || ch == ',' || ch == ';' || ch == '>' ||
+	    ch == '<' || ch == '=' || ch == '(' || ch == ')' ||
+	    ch == '[' || ch == ']' || ch == '{' || ch == '}' ||
+	    ch == '!' || ch == '@' || ch == '#' || ch == '$' ||
+	    ch == '^' || ch == '?' || ch == '|' || ch == '~' ||
+	    ch == '.' || ch == '"' || ch == ':')
+		return true;
+	return false;
+}
+
+bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
+	if(possible_category == T_NULL){
+		hex_flag = false;
+		science_flag = false;
+		if(*ch > '0' && *ch <'9')
+			possible_category = T_IntConstant;
+		else if(*ch > 'A' && *ch < 'z' || *ch == '_')
+			possible_category = T_Identifier;
+		else if(isDelimiter(inputLine[*right])==true){	//we stop here
+			if(*ch == '!' || *ch == '>' || *ch == '<'){
+				if(right==len || *(ch+1)!='='){
+					tokenBuffer[0]=*ch;
+					tokenBuffer[1]='\0';
+				}else{
+					tokenBuffer[0]=*ch;
+					tokenBuffer[1]='=';
+					tokenBuffer[2]='\0';
+					(*right)++;
+				}
+				return true;
+			}else if(*ch == '.'){
+				tokenBuffer[0]=*ch;
+				tokenBuffer[1]='\0';
+				return true;
+			}else if(*ch == '"'){// continuing until the end of line or next quote. Or, we need T_String
+				possible_category = T_StringConstant;
+			}else{
+				tokenBuffer[0]=*ch;
+				tokenBuffer[1]='\0';
+				return true;
+			}
+		}else{
+			//TODO: T_Unknown
+			possible_category = T_NULL;
+			tokenBuffer[0]=*ch;
+			tokenBuffer[1]='\0';
+			print_errors();
+			return true;
+		}
+		return false;	
+	}
+	if(possible_category == T_IntConstant){
+		if(*ch > '0' && *ch <'9'){
+			return false;
+		}else if(*ch > 'A' && *ch < 'z' || *ch == '_'){
+			if(hex_flag == false && (*ch == 'x' || *ch == 'X')){
+				hex_flag = true;//do not change category yet.
+				return false;
+			}else if(hex_flag == true && ((*ch >='a' && *ch <= 'f')||(*ch >='A' && *ch <='F')||(*ch>='0' && *ch <='9'))){
+				return false;//DO not change category
+			}else{//need to change category
+				if(hex_flag==true && (*(ch-1)=='x' || *(ch-1)=='X')){
+					tokenBuffer[*right-left-1]='\0';
+					*right=*right - 2;
+				}else{
+					tokenBuffer[*right-left]='\0';
+					(*right)--;
+				}
+				possible_category = T_NULL;
+				return true;
+			}
+		}else if(isDelimiter(inputLine[*right])==true){	//we stop here
+			if(*ch == '.'){
+				tokenBuffer[*right-left]=*ch;
+				possible_category = T_DoubleConstant;
+				return false;
+			}else if(*ch == '"'){// continuing until the end of line or next quote. Or, we need T_String
+				tokenBuffer[*right-left] = '\0';
+				(*right)--;
+				possible_category = T_NULL;
+				return true;
+			}else{
+				tokenBuffer[*right - left]='\0';
+				(*right)--;
+				possible_category = T_NULL;
+				return true;
+			}
+		}else{
+			print_errors();
+			tokenBuffer[*right-left]='\0';
+			(*right)--;
+			possible_category = T_NULL;
+			return true;
+		}
+		return false;	
+	}
+
+	if(possible_category == T_DoubleConstant){
+		if(*ch > '0' && *ch <'9'){
+			return false;
+		}else if(*ch > 'A' && *ch < 'z' || *ch == '_'){
+			if(science_flag == true){
+
+			}else if(*ch == 'e' || *ch == 'E'){
+				science_flag = true;//do not change category yet.
+				return false;
+			}else{//need to change category
+				tokenBuffer[*right-left]='\0';
+				(*right)--;
+				possible_category = T_NULL;
+				return true;
+			}
+		}else if(isDelimiter(inputLine[*right])==true){	//we stop here
+			if(science_flag == true){
+			if(*ch == '+'){
+				tokenBuffer[*right-left]=*ch;
+				possible_category = T_DoubleConstant;
+				return false;
+			}else if(*ch == '-'){// continuing until the end of line or next quote. Or, we need T_String
+				tokenBuffer[*right-left] = '\0';
+				(*right)--;
+				possible_category = T_NULL;
+				return true;
+			}else{
+				tokenBuffer[*right - left]='\0';
+				(*right)--;
+				possible_category = T_NULL;
+				return true;
+			}}else{
+				tokenBuffer[*right-left] = '\0';
+				(*right)--;
+				possible_category = T_NULL
+				return true
+			}
+		}else{
+			print_errors();
+			tokenBuffer[*right-left]='\0';
+			(*right)--;
+			possible_category = T_NULL;
+			return true;
+		}
+		return false;	
+
+	}
+
+	if(possible_category == T_Identifier){
+
+	}
+	
+	if(possible_category == T_StringConstant){
+
+	}
+
+	if(right == stringLen){
+		tokenBuffer[right-left]='\0';
+		return true;
+	}else if(isDelimiter(inputLine[right])==true){	//we stop here
+		tokenBuffer[right-left]='\0';		// we have have deterministic category---saves in deterministic category
+		fputs(tokenBuffer, outputfile);
+		fputc('\n', outputfile);
+                if(inputLine[right]!=' '){
+			fputc(inputLine[right], outputfile); // we know what it is.
+			fputc('\n', outputfile);
+		}
+		right++;
+		left = right;
+	}else if(){//it is normal character, we should determine what category it is.
+		for(i=left; i<right; i++){
+			tokenBuffer[i-left]=inputLine[i];
+		}
+		tokenBuffer[i-left]='\0';
+		fputs(tokenBuffer, outputfile);
+		left = right;
+	}else{
+		tokenBuffer[right-left]=inputLine[right];
+		if(possible_category == T_NULL){
+			if(ch > '0' && ch <'9')
+				possible_category = T_IntConstant;
+			else if(ch > 'A' && ch < 'z')
+				possible_category = T_Identifier;
+			else
+				possible_category = T_Unknown;
+		}else if(possible_category == T_IntConstant){
+			if(ch >= 'A' && ch <= 'z'){
+				if(ch == 'x' || ch == 'X'){
+					possible_hex_flag = true;
+				}else if(ch > 'a' || ch < 'f' || ch > 'A' || ch < 'F')
+			}
+		}
+		right++;
+	}
+	return false;
+}
+
+int getTokens(char *inputLine, int cur_row, FILE* outputfile){
+	char tokenBuffer[MAX_TOKEN_SIZE + 1];
+	int left = 0, right = 0, i = 0;
+	int stringLen = strlen(inputLine);
+	
+	while(right <= stringLen && left <=right){
+		if(newTokenEnd(tokenBuffer,&inputLine[right],left, right, stringLen-1)){
+			fputs(tokenBuffer, outputfile);
+			printf("%s, row:%d, start:%d, end:%d, category:%d\n", tokenBuffer, cur_row, left, right, category);
+			right++;
+			left = right;
+		}else{//no new token, we should increase
+			tokenBuffer[right-left]=inputLine[right];
+			right++;
+		}
+	}
+	return 0;
+}
+
+struct option long_options[] = {
+	{"tokon", 	no_argument, 	  0, 't'}, // generate token file
+	{"input", 	required_argument, 0, 'i'}, // input file
+	{"output",	required_argument, 0, 'o'}, // output file
+	{"help",	no_argument, 	  0, 'h'}, // output file
+	{0, 0, 0, 0}
+};
+
+int main(int argc, char* argv[]){
+	int o,i,row_num;
+	int token_flag = 0;
+	char szLineBuffer[MAX_LINE_SIZE + 1];//input buffer for fgets
+	char *source_file_name = "";
+	char *output_file_name = "a.out";
+	FILE *source_file = NULL;
+	FILE *output_file = NULL;
+
+    	while(1){
+		o = getopt_long(argc, argv, "ht:i:o:", long_options, NULL);
+		if(o == -1) break;
+		switch(o){
+		case 'h':
+			print_usage();
+			exit(0);
+		case 'i':
+			source_file_name = strdup(optarg);
+			break;
+		case 'o': 
+			output_file_name = strdup(optarg);
+			break;
+		case 't':
+			token_flag = 1;
+			printf("token_flag is 1\n");
+			break;
+		default:
+			printf("Unknow argument: %d\n", o);
+			print_usage();
+			exit(0);
+		}
+    	}
+    	printf("start to process the source file\n");
+	source_file = fopen(source_file_name, "r");
+	output_file = fopen(output_file_name, "w+");
+        if(token_flag == 1) printf("token flag is 1\n");
+	else printf("token flag is 0\n");
+	row_num = -1;
+	while(fgets(szLineBuffer, MAX_LINE_SIZE, source_file)!=NULL){
+		row_num++;
+		if(szLineBuffer[0] == '\n') continue;
+		if(getTokens(szLineBuffer, row_num, output_file)== -1){
+			print_errors();
+			break;
+		}
+	}
+	fclose(source_file);
+	fclose(output_file);
+    	return 0;
+}
+
