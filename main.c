@@ -34,7 +34,7 @@
 #define T_String 	2
 #define T_Void		3
 #define T_Int		4
-#define T_Double	5
+#define T_DoubleConstant 5
 #define T_While		6
 #define T_If		7
 #define T_Else		8
@@ -53,6 +53,9 @@
 
 int possible_category = 0;
 int deterministic_category = 0;
+bool hex_flag = false;
+bool science_flag = false;
+bool space_flag = false;
 
 void print_usage(){
 	printf("Usage: ./dcc -t -i inputfile -o [outputfile]\n");
@@ -60,7 +63,7 @@ void print_usage(){
 	return;
 }
 void print_errors(){
-	printf("There is an error\n");
+	//printf("There is an error\n");
 	return;
 }
 
@@ -71,7 +74,7 @@ bool isDelimiter(char ch){
 	    ch == '[' || ch == ']' || ch == '{' || ch == '}' ||
 	    ch == '!' || ch == '@' || ch == '#' || ch == '$' ||
 	    ch == '^' || ch == '?' || ch == '|' || ch == '~' ||
-	    ch == '.' || ch == '"' || ch == ':')
+	    ch == '.' || ch == '"' || ch == ':' || ch == '\n')
 		return true;
 	return false;
 }
@@ -81,13 +84,13 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 	if(possible_category == T_NULL){
 		hex_flag = false;
 		science_flag = false;
-		if(*ch > '0' && *ch <'9')
+		if(*ch >= '0' && *ch <='9')
 			possible_category = T_IntConstant;
-		else if(*ch > 'A' && *ch < 'z' || *ch == '_')
+		else if(*ch >= 'A' && *ch <= 'z' || *ch == '_')
 			possible_category = T_Identifier;
-		else if(isDelimiter(inputLine[*right])==true){	//we stop here
+		else if(isDelimiter(*ch)==true){	//we stop here
 			if(*ch == '!' || *ch == '>' || *ch == '<' || *ch == '='){
-				if(right==len || *(ch+1)!='='){
+				if(*right==len || *(ch+1)!='='){
 					tokenBuffer[0]=*ch;
 					tokenBuffer[1]='\0';
 					deterministic_category = T_Others;
@@ -101,18 +104,24 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 					if(*ch == '<') deterministic_category = T_LessEqual;
 					if(*ch == '=') deterministic_category = T_Equal;
 				}
+				possible_category = T_NULL;
 				return true;
 			}else if(*ch == '.'){
 				tokenBuffer[0]=*ch;
 				tokenBuffer[1]='\0';
 				deterministic_category = T_Others;
+				possible_category = T_NULL;
 				return true;
 			}else if(*ch == '"'){// continuing until the end of line or next quote. Or, we need T_String
 				possible_category = T_StringConstant;
-			}else{
+			}else if(*ch == ' '){
+				return true;
+			}else if(*ch == '\n'){return false;}
+			else{
 				tokenBuffer[0]=*ch;
 				tokenBuffer[1]='\0';
 				deterministic_category = T_Others;
+				possible_category = T_NULL;
 				return true;
 			}
 		}else{
@@ -120,16 +129,16 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 			possible_category = T_NULL;
 			tokenBuffer[0]=*ch;
 			tokenBuffer[1]='\0';
-			deterministc_category = T_Unknown;
+			deterministic_category = T_Unknown;
 			print_errors();
 			return true;
 		}
 		return false;	
 	}
 	if(possible_category == T_IntConstant){
-		if(*ch > '0' && *ch <'9'){
+		if(*ch >= '0' && *ch <='9'){
 			return false;
-		}else if(*ch > 'A' && *ch < 'z' || *ch == '_'){
+		}else if(*ch >= 'A' && *ch <= 'z' || *ch == '_'){
 			if(hex_flag == false && (*ch == 'x' || *ch == 'X')){
 				hex_flag = true;//do not change category yet.
 				return false;
@@ -147,7 +156,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 				possible_category = T_NULL;
 				return true;
 			}
-		}else if(isDelimiter(inputLine[*right])==true){	//we stop here
+		}else if(isDelimiter(*ch)==true){	//we stop here
 			if(*ch == '.'){
 				tokenBuffer[*right-left]=*ch;
 				possible_category = T_DoubleConstant;
@@ -160,7 +169,8 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 				return true;
 			}else{
 				tokenBuffer[*right - left]='\0';
-				(*right)--;
+				//if(*ch != ' '&& *ch !='\n')
+					(*right)--;
 				deterministic_category = T_IntConstant;
 				possible_category = T_NULL;
 				return true;
@@ -177,9 +187,9 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 	}
 
 	if(possible_category == T_DoubleConstant){
-		if(*ch > '0' && *ch <'9'){
+		if(*ch >= '0' && *ch <='9'){
 			return false;
-		}else if(*ch > 'A' && *ch < 'z' || *ch == '_'){
+		}else if(*ch >= 'A' && *ch <= 'z' || *ch == '_'){
 			if(science_flag == true){
 				//*ch-1 is e or E, back 1 split
 				if(*(ch-1) == 'e' || *(ch-1) == 'E'){
@@ -215,7 +225,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 				possible_category = T_NULL;
 				return true;
 			}
-		}else if(isDelimiter(inputLine[*right])==true){	//we stop here
+		}else if(isDelimiter(*ch)==true){	//we stop here
 			if(science_flag == true){
 			if((*ch == '+' || *ch == '-') && (*(ch-1) == 'e' || *(ch-1)=='E')){
 				tokenBuffer[*right-left]=*ch;
@@ -237,8 +247,8 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 				tokenBuffer[*right-left] = '\0';
 				(*right)--;
 			        deterministic_category = T_DoubleConstant;
-				possible_category = T_NULL
-				return true
+				possible_category = T_NULL;
+				return true;
 			}
 		}else{
 			print_errors();
@@ -253,7 +263,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 	}
 
 	if(possible_category == T_Identifier){
-		if(isDelimiter(inputLine[*right])==true){
+		if(isDelimiter(*ch)==true){
 			tokenBuffer[*right-left] = '\0';
 			(*right)--;
 			deterministic_category = T_Identifier;
@@ -272,12 +282,13 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int left, int *right, int len){
 			deterministic_category = T_StringConstant;
 			possible_category = T_NULL;
 			return true;
-		}else if(right==len){
-			print_error();
+		}else if(*right==len){
+			print_errors();
 			deterministic_category = T_StringConstant;//need further discuss
 			possible_category = T_NULL;
 			return true;
-		}
+		}else
+			return false;
 	}
 
 	return false;
@@ -288,10 +299,10 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 	int left = 0, right = 0, i = 0;
 	int stringLen = strlen(inputLine);
 	
-	while(right <= stringLen && left <=right){
-		if(newTokenEnd(tokenBuffer,&inputLine[right],left, right, stringLen-1)){
+	while(right < stringLen && left <=right){
+		if(newTokenEnd(tokenBuffer,&inputLine[right],left, &right, stringLen-1)){
 			fputs(tokenBuffer, outputfile);
-			printf("%s, row:%d, start:%d, end:%d, category:%d\n", tokenBuffer, cur_row, left, right, category);
+			printf("%s\t, row:%d\t, start:%d\t, end:%d\t\t, category:%d\n", tokenBuffer, cur_row, left, right, deterministic_category);
 			right++;
 			left = right;
 		}else{//no new token, we should increase
@@ -347,7 +358,7 @@ int main(int argc, char* argv[]){
 	output_file = fopen(output_file_name, "w+");
         if(token_flag == 1) printf("token flag is 1\n");
 	else printf("token flag is 0\n");
-	row_num = -1;
+	row_num = 0;
 	while(fgets(szLineBuffer, MAX_LINE_SIZE, source_file)!=NULL){
 		row_num++;
 		if(szLineBuffer[0] == '\n') continue;
