@@ -74,7 +74,8 @@
 #define ERR_Unterminated	1
 #define ERR_TooLongVariable  	2
 #define ERR_UnknownSymbol  	3
-#define ERR_Others	  	4
+#define ERR_InvalidDirective  	4
+#define ERR_Others	  	5
 
 int  possible_category = 0;
 int  deterministic_category = 0;
@@ -101,6 +102,10 @@ void print_errors(int num_err, char* bufferStr, int row){
 		case ERR_UnknownSymbol:
 			printf("\n*** Error line %d.\n", row);
 			printf("*** Unterminated recognized symbol: %s\n\n", bufferStr);
+			break;
+		case ERR_InvalidDirective:
+			printf("\n*** Error line %d.\n", row);
+			printf("*** Invalid # directive\n\n");
 			break;
 		default:
 			break;
@@ -246,6 +251,14 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 					return true;
 				}else{
 					print_errors(ERR_Others, tokenBuffer,0);
+				}
+			}else if(*ch=='#'){
+				char macroIdentifier[1000];
+				getNextIdentifier(macroIdentifier);
+				if(strcmp(macroIdentifier, "define")==0){
+					//put Identifier and value into MacroTable;
+				}else{
+					//compare Identifier with items in MacroTable;
 				}
 			}else{
 				tokenBuffer[0]=*ch;
