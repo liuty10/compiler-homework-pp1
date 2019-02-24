@@ -31,26 +31,37 @@
 
 // Define token types
 #define T_NULL	 	0
-#define T_IntConstant 	1
-#define T_String 	2
-#define T_Void		3
-#define T_Int		4
-#define T_DoubleConstant 5
-#define T_While		6
-#define T_If		7
-#define T_Else		8
-#define T_Return	9
-#define T_Break		10
-#define T_BoolConstant	11
-#define T_Or		12
-#define T_LessEqual	13
-#define T_GreaterEqual	14
-#define T_Equal		15
-#define T_NotEqual	16
-#define T_StringConstant 17
-#define T_Identifier 	18
-#define T_Others	19
-#define T_Unknown	20
+#define T_BoolConstant	1
+#define T_IntConstant 	2
+#define T_DoubleConstant 3
+#define T_StringConstant 4
+#define T_Identifier 	25
+
+#define T_Void		5
+#define T_Int		6
+#define T_Double	7
+#define T_Bool		28
+#define T_String 	8
+#define T_Null	 	9
+#define T_For		10
+#define T_While		11
+#define T_If		12
+#define T_Else		13
+#define T_Return	14
+#define T_Break		15
+#define T_Print		16
+#define T_ReadInteger	17
+#define T_ReadLine	18
+
+#define T_Or		19
+#define T_And		20
+#define T_LessEqual	21
+#define T_GreaterEqual	22
+#define T_Equal		23
+#define T_NotEqual	24
+
+#define T_Others	26
+#define T_Unknown	27
 
 //Define Error types
 #define ERR_NULL		0
@@ -142,6 +153,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 			}else if(*ch == ' '){
 				(*pleft)++;
 				(*pright)++;
+				possible_category = T_NULL;
 				return false;
 			}else if(*ch == '\n'){return false;}
 			else{
@@ -340,6 +352,27 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 	return false;
 }
 
+int check_keyword(char* tokenBuffer){
+	if(strcmp(tokenBuffer, "void")==0) 	return T_Void;
+	if(strcmp(tokenBuffer, "int")==0) 	return T_Int;
+	if(strcmp(tokenBuffer, "double")==0) 	return T_Double;
+	if(strcmp(tokenBuffer, "bool")==0) 	return T_Bool;
+	if(strcmp(tokenBuffer, "string")==0) 	return T_String;
+	if(strcmp(tokenBuffer, "null")==0) 	return T_Null;
+	if(strcmp(tokenBuffer, "for")==0) 	return T_For;
+	if(strcmp(tokenBuffer, "while")==0) 	return T_While;
+	if(strcmp(tokenBuffer, "if")==0) 	return T_If;
+	if(strcmp(tokenBuffer, "else")==0) 	return T_Else;
+	if(strcmp(tokenBuffer, "return")==0) 	return T_Return;
+	if(strcmp(tokenBuffer, "break")==0) 	return T_Break;
+	if(strcmp(tokenBuffer, "Print")==0) 	return T_Print;
+	if(strcmp(tokenBuffer, "ReadInteger")==0) return T_ReadInteger;
+	if(strcmp(tokenBuffer, "ReadLine")==0) 	return T_ReadLine;
+	if(strcmp(tokenBuffer, "false")==0) 	return T_BoolConstant;
+	if(strcmp(tokenBuffer, "true")==0) 	return T_BoolConstant;
+	return T_Identifier;	
+}
+
 int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 	char tokenBuffer[MAX_TOKEN_SIZE + 1];
 	int left = 0, right = 0, i = 0;
@@ -351,6 +384,9 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 			if(err_num!=ERR_NULL){
 				print_errors(err_num, tokenBuffer, cur_row);
 			}else{
+			if(deterministic_category == T_Identifier){
+				deterministic_category = check_keyword(tokenBuffer);
+			}
 			switch(deterministic_category){
 				case T_IntConstant:
 					printf("%s\t\tline %d cols %d-%d is T_IntConstant (value = %s)\n", tokenBuffer, cur_row, left+1, right+1, tokenBuffer);
@@ -363,6 +399,30 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 					break;
 				case T_Int:
 					printf("%s\t\tline %d cols %d-%d is T_Int\n", tokenBuffer, cur_row, left+1, right+1);
+					break;
+				case T_Double:
+					printf("%s\t\tline %d cols %d-%d is T_Double\n", tokenBuffer, cur_row, left+1, right+1);
+					break;
+				case T_Bool:
+					printf("%s\t\tline %d cols %d-%d is T_Bool\n", tokenBuffer, cur_row, left+1, right+1);
+					break;
+				case T_Null:
+					printf("%s\t\tline %d cols %d-%d is T_Null\n", tokenBuffer, cur_row, left+1, right+1);
+					break;
+				case T_For:
+					printf("%s\t\tline %d cols %d-%d is T_For\n", tokenBuffer, cur_row, left+1, right+1);
+					break;
+				case T_Print:
+					printf("%s\t\tline %d cols %d-%d is T_Print\n", tokenBuffer, cur_row, left+1, right+1);
+					break;
+				case T_ReadInteger:
+					printf("%s\t\tline %d cols %d-%d is T_ReadInteger\n", tokenBuffer, cur_row, left+1, right+1);
+					break;
+				case T_ReadLine:
+					printf("%s\t\tline %d cols %d-%d is T_ReadLine\n", tokenBuffer, cur_row, left+1, right+1);
+					break;
+				case T_BoolConstant:
+					printf("%s\t\tline %d cols %d-%d is T_BoolConstant (value = %s)\n", tokenBuffer, cur_row, left+1, right+1, tokenBuffer);
 					break;
 				case T_DoubleConstant:
 					printf("%s\t\tline %d cols %d-%d is T_DoubleConstant (value = %s)\n", tokenBuffer, cur_row, left+1, right+1, tokenBuffer);
@@ -382,8 +442,8 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 				case T_Break:
 					printf("%s\t\tline %d cols %d-%d is T_Break\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
-				case T_BoolConstant:
-					printf("%s\t\tline %d cols %d-%d is T_BoolConstant\n", tokenBuffer, cur_row, left+1, right+1);
+				case T_And:
+					printf("%s\t\tline %d cols %d-%d is T_And\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_Or:
 					printf("%s\t\tline %d cols %d-%d is T_Or\n", tokenBuffer, cur_row, left+1, right+1);
