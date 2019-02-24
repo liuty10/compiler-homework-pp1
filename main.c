@@ -574,7 +574,7 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 					printf("%s\t\tline %d cols %d-%d is T_NotEqual\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_StringConstant:
-					printf("%s\t\tline %d cols %d-%d is T_StringConstant\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_StringConstant (value = %s)\n", tokenBuffer, cur_row, left+1, right+1, tokenBuffer);
 					break;
 				case T_Identifier:
 					printf("%s\t\tline %d cols %d-%d is T_Identifier\n", tokenBuffer, cur_row, left+1, right+1);
