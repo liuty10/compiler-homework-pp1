@@ -70,7 +70,23 @@ void print_usage(){
 	printf("\n");
 	return;
 }
-void print_errors(){
+void print_errors(int num_err, char* bufferStr, int row){
+	switch(num_err){
+		case ERR_Unterminated:
+			printf("\n*** Error line %d.\n", row);
+			printf("*** Unterminated string constant: %s\n\n", bufferStr);
+			break;
+		case ERR_TooLongVariable:
+			printf("\n*** Error line %d.\n", row);
+			printf("*** Inditifier too long: \"%s\".\n\n", bufferStr);
+			break;
+		case ERR_UnknownSymbol:
+			printf("\n*** Error line %d.\n", row);
+			printf("*** Unterminated recognized symbol: %s\n\n", bufferStr);
+			break;
+		default:
+			break;
+	}
 	//printf("There is an error\n");
 	return;
 }
@@ -95,7 +111,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 		science_flag = false;
 		if(*ch >= '0' && *ch <='9')
 			possible_category = T_IntConstant;
-		else if(*ch >= 'A' && *ch <= 'z' || *ch == '_')
+		else if((*ch >= 'A' && *ch <= 'Z') || (*ch>='a' && *ch<='z') || *ch == '_')
 			possible_category = T_Identifier;
 		else if(isDelimiter(*ch)==true){	//we stop here
 			if(*ch == '!' || *ch == '>' || *ch == '<' || *ch == '='){
@@ -141,7 +157,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 			tokenBuffer[0]=*ch;
 			tokenBuffer[1]='\0';
 			deterministic_category = T_Unknown;
-			err_num = ERR_Unknown;
+			err_num = ERR_UnknownSymbol;
 			//print_errors();
 			return true;
 		}
@@ -150,7 +166,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 	if(possible_category == T_IntConstant){
 		if(*ch >= '0' && *ch <='9'){
 			return false;
-		}else if(*ch >= 'A' && *ch <= 'z' || *ch == '_'){
+		}else if((*ch >= 'A' && *ch <= 'Z') || (*ch>='a' && *ch<='z') || *ch == '_'){
 			if(hex_flag == false && (*ch == 'x' || *ch == 'X')&&(*(ch-1) == '0')){
 				hex_flag = true;//do not change category yet.
 				return false;
@@ -194,7 +210,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 			}
 		}else{
 			//print_errors();
-			err_num = ERR_Unknown;
+			err_num = ERR_UnknownSymbol;
 			tokenBuffer[(*pright)-(*pleft)]='\0';
 			(*pright)--;
 			deterministic_category = T_IntConstant;
@@ -207,7 +223,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 	if(possible_category == T_DoubleConstant){
 		if(*ch >= '0' && *ch <='9'){
 			return false;
-		}else if(*ch >= 'A' && *ch <= 'z' || *ch == '_'){
+		}else if((*ch >= 'A' && *ch <= 'Z')|| (*ch >='a'&&*ch<='z') || *ch == '_'){
 			if(science_flag == true){
 				//*ch-1 is e or E, back 1 split
 				if(*(ch-1) == 'e' || *(ch-1) == 'E'){
@@ -292,6 +308,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 	if(possible_category == T_Identifier){
 		if(isDelimiter(*ch)==true){
 			tokenBuffer[(*pright)-(*pleft)] = '\0';
+			if(strlen(tokenBuffer)>32) err_num=ERR_TooLongVariable;
 			(*pright)--;
 			deterministic_category = T_Identifier;
 			possible_category = T_NULL;
@@ -332,72 +349,72 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 		if(newTokenEnd(tokenBuffer,&inputLine[right],&left, &right, stringLen-1)){
 			fputs(tokenBuffer, outputfile);
 			if(err_num!=ERR_NULL){
-				print_errrors(err_num, tokenBuffer);
-			}
+				print_errors(err_num, tokenBuffer, cur_row);
+			}else{
 			switch(deterministic_category){
 				case T_IntConstant:
-					printf("%s\t\t, line %d cols %d-%d is T_IntConstant\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_IntConstant (value = %s)\n", tokenBuffer, cur_row, left+1, right+1, tokenBuffer);
 					break;
 				case T_String:
-					printf("%s\t\t, line %d cols %d-%d is T_String\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_String\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_Void:
-					printf("%s\t\t, line %d cols %d-%d is T_Void\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_Void\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_Int:
-					printf("%s\t\t, line %d cols %d-%d is T_Int\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_Int\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_DoubleConstant:
-					printf("%s\t\t, line %d cols %d-%d is T_DoubleConstant\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_DoubleConstant (value = %s)\n", tokenBuffer, cur_row, left+1, right+1, tokenBuffer);
 					break;
 				case T_While:
-					printf("%s\t\t, line %d cols %d-%d is T_While\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_While\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_If:
-					printf("%s\t\t, line %d cols %d-%d is T_If\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_If\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_Else:
-					printf("%s\t\t, line %d cols %d-%d is T_Else\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_Else\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_Return:
-					printf("%s\t\t, line %d cols %d-%d is T_Return\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_Return\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_Break:
-					printf("%s\t\t, line %d cols %d-%d is T_Break\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_Break\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_BoolConstant:
-					printf("%s\t\t, line %d cols %d-%d is T_BoolConstant\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_BoolConstant\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_Or:
-					printf("%s\t\t, line %d cols %d-%d is T_Or\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_Or\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_LessEqual:
-					printf("%s\t\t, line %d cols %d-%d is T_LessEqual\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_LessEqual\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_GreaterEqual:
-					printf("%s\t\t, line %d cols %d-%d is T_GreaterEqual\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_GreaterEqual\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_Equal:
-					printf("%s\t\t, line %d cols %d-%d is T_Equal\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_Equal\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_NotEqual:
-					printf("%s\t\t, line %d cols %d-%d is T_NotEqual\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_NotEqual\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_StringConstant:
-					printf("%s\t\t, line %d cols %d-%d is T_StringConstant\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_StringConstant\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_Identifier:
-					printf("%s\t\t, line %d cols %d-%d is T_Identifier\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_Identifier\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_Others:
-					printf("%s\t\t, line %d cols %d-%d is %s\n", tokenBuffer, cur_row, left+1, right+1, tokenBuffer);
+					printf("%s\t\tline %d cols %d-%d is '%s'\n", tokenBuffer, cur_row, left+1, right+1, tokenBuffer);
 					break;
 				case T_Unknown:
-					printf("%s\t\t, line %d cols %d-%d is T_Unknown\n", tokenBuffer, cur_row, left+1, right+1);
+					printf("%s\t\tline %d cols %d-%d is T_Unknown\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				default:
 					break;
-			}
+			}}
 			right++;
 			left = right;
 			err_num = ERR_NULL;
@@ -449,17 +466,17 @@ int main(int argc, char* argv[]){
 			exit(0);
 		}
     	}
-    	printf("start to process the source file\n");
+    	//printf("start to process the source file\n");
 	source_file = fopen(source_file_name, "r");
 	output_file = fopen(output_file_name, "w+");
-        if(token_flag == 1) printf("token flag is 1\n");
-	else printf("token flag is 0\n\n");
+        //if(token_flag == 1) printf("token flag is 1\n");
+	//else printf("token flag is 0\n\n");
 	row_num = 0;
 	while(fgets(szLineBuffer, MAX_LINE_SIZE, source_file)!=NULL){
 		row_num++;
 		if(szLineBuffer[0] == '\n') continue;
 		if(getTokens(szLineBuffer, row_num, output_file)== -1){
-			print_errors();
+			//print_errors();
 			break;
 		}
 	}
