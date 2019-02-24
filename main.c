@@ -25,6 +25,7 @@
 
 #define MAX_LINE_SIZE 1000
 #define MAX_TOKEN_SIZE 1000
+#define MACRO_TABLE_SIZE 1000
 #define true 1
 #define false 0
 #define bool int
@@ -251,14 +252,6 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 					return true;
 				}else{
 					print_errors(ERR_Others, tokenBuffer,0);
-				}
-			}else if(*ch=='#'){
-				char macroIdentifier[1000];
-				getNextIdentifier(macroIdentifier);
-				if(strcmp(macroIdentifier, "define")==0){
-					//put Identifier and value into MacroTable;
-				}else{
-					//compare Identifier with items in MacroTable;
 				}
 			}else{
 				tokenBuffer[0]=*ch;
@@ -500,7 +493,7 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 				err_num = ERR_NULL;
 				continue;
 			}
-			fputs(tokenBuffer, outputfile);
+			//fputs(tokenBuffer, outputfile);
 			if(err_num!=ERR_NULL){
 				print_errors(err_num, tokenBuffer, cur_row);
 			}else{
@@ -628,13 +621,59 @@ struct option long_options[] = {
 	{0, 0, 0, 0}
 };
 
+struct MacroDefination{
+        int valid;
+	char macro[32];
+	char value[MAX_LINE_SIZE];
+};
+
+struct MacroDefination MacroTable[MACRO_TABLE_SIZE];
+
+void findMacroAndReplace(char* input, char* output){
+	int len = strlen(input);
+	int i = 0;
+	int state = 0;
+	for(i=0; i<len && input[i]!='\n'; i++);
+
+	while(left<=right && right < len){
+		if(state == 0){
+			if(input[i] != '#'){
+				right++;
+				left = right;
+				continue;
+			}else{
+				right++;
+				left = right;
+				state = 1;
+			}
+		}
+		if(state == 1){
+			left=i;
+		}
+	}
+}
+
+void pre_processor(FILE* source, FILE* dest){
+	char szLineBuffer[MAX_LINE_SIZE + 1];   //input buffer for fgets
+	char afterLineBuffer[MAX_LINE_SIZE + 1];//output buffer for fputs
+	while(fgets(szLineBuffer, MAX_LINE_SIZE, source)!=NULL){
+		if(szLineBuffer[0] == '\n') continue;
+		findMacroAndReplace(szLineBuffer, afterLineBuffer);
+		fputs(afterLineBuffer, dest);
+	}
+	return;
+}
+
 int main(int argc, char* argv[]){
 	int o,i,row_num;
 	int token_flag = 0;
 	char szLineBuffer[MAX_LINE_SIZE + 1];//input buffer for fgets
 	char *source_file_name = "";
+	char *processed_file_name = "tmp.out";
 	char *output_file_name = "a.out";
+
 	FILE *source_file = NULL;
+	FILE *processed_file = NULL;
 	FILE *output_file = NULL;
 
     	while(1){
@@ -660,22 +699,20 @@ int main(int argc, char* argv[]){
 			exit(0);
 		}
     	}
-    	//printf("start to process the source file\n");
-	source_file = fopen(source_file_name, "r");
-	output_file = fopen(output_file_name, "w+");
-        //if(token_flag == 1) printf("token flag is 1\n");
-	//else printf("token flag is 0\n\n");
+	source_file 	= fopen(source_file_name, "r");
+	processed_file 	= fopen(processed_file_name, "w+");
+	pre_processor(source_file, processed_file);
 	row_num = 0;
-	while(fgets(szLineBuffer, MAX_LINE_SIZE, source_file)!=NULL){
+	rewind(processed_file);
+	while(fgets(szLineBuffer, MAX_LINE_SIZE, processed_file)!=NULL){
 		row_num++;
 		if(szLineBuffer[0] == '\n') continue;
 		if(getTokens(szLineBuffer, row_num, output_file)== -1){
-			//print_errors();
 			break;
 		}
 	}
 	fclose(source_file);
-	fclose(output_file);
+	fclose(processed_file);
     	return 0;
 }
 
