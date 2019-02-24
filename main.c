@@ -53,8 +53,8 @@
 #define T_ReadInteger	17
 #define T_ReadLine	18
 
-#define T_Or		19
-#define T_And		20
+#define T_Logic_Or	19
+#define T_Logic_And	20
 #define T_LessEqual	21
 #define T_GreaterEqual	22
 #define T_Equal		23
@@ -62,6 +62,9 @@
 
 #define T_Others	26
 #define T_Unknown	27
+
+#define T_Bitwise_Or		29
+#define T_Bitwise_And		30
 
 //Define Error types
 #define ERR_NULL		0
@@ -74,6 +77,7 @@ int  possible_category = 0;
 int  deterministic_category = 0;
 bool hex_flag = false;
 bool science_flag = false;
+bool space_flag = false;
 int  err_num = 0;
 
 void print_usage(){
@@ -120,6 +124,7 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 	if(possible_category == T_NULL){
 		hex_flag = false;
 		science_flag = false;
+		space_flag = false;
 		if(*ch >= '0' && *ch <='9')
 			possible_category = T_IntConstant;
 		else if((*ch >= 'A' && *ch <= 'Z') || (*ch>='a' && *ch<='z') || *ch == '_')
@@ -150,13 +155,55 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 				return true;
 			}else if(*ch == '"'){// continuing until the end of line or next quote. Or, we need T_String
 				possible_category = T_StringConstant;
+				return false;
 			}else if(*ch == ' '){
 				(*pleft)++;
 				(*pright)++;
 				possible_category = T_NULL;
+				space_flag = true;
 				return false;
-			}else if(*ch == '\n'){return false;}
-			else{
+			}else if(*ch == '\n'){
+				return false;
+			}else if(*ch=='|'){
+				if((*pright)==len || *(ch+1)!='|'){
+					tokenBuffer[0]=*ch;
+					tokenBuffer[1]='\0';
+					deterministic_category = T_Bitwise_Or;
+					possible_category = T_NULL;
+					return true;
+				}
+				if(*(ch+1) == '|'){
+					tokenBuffer[0]=*ch;
+					tokenBuffer[1]=*ch;
+					tokenBuffer[2]='\0';
+					deterministic_category = T_Logic_Or;
+					possible_category = T_NULL;
+					(*pright)++;
+					return true;
+				}else{
+					print_errors(ERR_Others, tokenBuffer, 0);
+				}
+				
+			}else if(*ch=='&'){
+				if((*pright)==len || *(ch+1)!='&'){
+					tokenBuffer[0]=*ch;
+					tokenBuffer[1]='\0';
+					deterministic_category = T_Bitwise_And;
+					possible_category = T_NULL;
+					return true;
+				}
+				if(*(ch+1) == '&'){
+					tokenBuffer[0]=*ch;
+					tokenBuffer[1]=*ch;
+					tokenBuffer[2]='\0';
+					deterministic_category = T_Logic_And;
+					possible_category = T_NULL;
+					(*pleft)++;
+					return true;
+				}else{
+					print_errors(ERR_Others, tokenBuffer,0);
+				}
+			}else{
 				tokenBuffer[0]=*ch;
 				tokenBuffer[1]='\0';
 				deterministic_category = T_Others;
@@ -442,11 +489,17 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 				case T_Break:
 					printf("%s\t\tline %d cols %d-%d is T_Break\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
-				case T_And:
-					printf("%s\t\tline %d cols %d-%d is T_And\n", tokenBuffer, cur_row, left+1, right+1);
+				case T_Logic_And:
+					printf("%s\t\tline %d cols %d-%d is T_Logic_And\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
-				case T_Or:
-					printf("%s\t\tline %d cols %d-%d is T_Or\n", tokenBuffer, cur_row, left+1, right+1);
+				case T_Logic_Or:
+					printf("%s\t\tline %d cols %d-%d is T_Logic_Or\n", tokenBuffer, cur_row, left+1, right+1);
+					break;
+				case T_Bitwise_And:
+					printf("%s\t\tline %d cols %d-%d is T_Bitwise_And\n", tokenBuffer, cur_row, left+1, right+1);
+					break;
+				case T_Bitwise_Or:
+					printf("%s\t\tline %d cols %d-%d is T_Bitwise_Or\n", tokenBuffer, cur_row, left+1, right+1);
 					break;
 				case T_LessEqual:
 					printf("%s\t\tline %d cols %d-%d is T_LessEqual\n", tokenBuffer, cur_row, left+1, right+1);
@@ -479,8 +532,9 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 			left = right;
 			err_num = ERR_NULL;
 		}else{//no new token, we should increase
+			if(space_flag == false){
 			tokenBuffer[right-left]=inputLine[right];
-			right++;
+			right++;}
 		}
 	}
 	return 0;
