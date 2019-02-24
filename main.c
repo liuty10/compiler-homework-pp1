@@ -66,6 +66,9 @@
 #define T_Bitwise_Or		29
 #define T_Bitwise_And		30
 
+#define T_Comment_Line		31
+#define T_Comment_Multiple	32
+
 //Define Error types
 #define ERR_NULL		0
 #define ERR_Unterminated	1
@@ -185,6 +188,47 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 				}
 				
 			}else if(*ch=='&'){
+				if((*pright)==len || *(ch+1)!='&'){
+					tokenBuffer[0]=*ch;
+					tokenBuffer[1]='\0';
+					deterministic_category = T_Bitwise_And;
+					possible_category = T_NULL;
+					return true;
+				}
+				if(*(ch+1) == '&'){
+					tokenBuffer[0]=*ch;
+					tokenBuffer[1]=*ch;
+					tokenBuffer[2]='\0';
+					deterministic_category = T_Logic_And;
+					possible_category = T_NULL;
+					(*pleft)++;
+					return true;
+				}else{
+					print_errors(ERR_Others, tokenBuffer,0);
+				}
+			}else if(*ch=='/'){
+				if((*pright)<len){
+					if(*(ch+1)=='/'){
+						possible_category = T_Comment_Line;
+						//(*pright) = len;
+						return false;
+					}else if(*(ch+1)=='*'){
+						possible_category = T_Comment_Multiple;
+						return false;
+					}else{
+						tokenBuffer[0]=*ch;
+						tokenBuffer[1]='\0';
+						deterministic_category = T_Others;
+						possible_category = T_NULL;
+						return true;
+					}
+				}else{
+					tokenBuffer[0]=*ch;
+					tokenBuffer[1]='\0';
+					deterministic_category = T_Others;
+					possible_category = T_NULL;
+					return true;
+				}
 				if((*pright)==len || *(ch+1)!='&'){
 					tokenBuffer[0]=*ch;
 					tokenBuffer[1]='\0';
@@ -396,6 +440,10 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 			return false;
 	}
 
+	if(possible_category == T_Comment_Multiple){
+			return false;
+	}
+
 	return false;
 }
 
@@ -532,9 +580,14 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 			left = right;
 			err_num = ERR_NULL;
 		}else{//no new token, we should increase
+			if(possible_category == T_Comment_Line){
+				possible_category = T_NULL;
+				break;
+			}
 			if(space_flag == false){
-			tokenBuffer[right-left]=inputLine[right];
-			right++;}
+				tokenBuffer[right-left]=inputLine[right];
+				right++;
+			}
 		}
 	}
 	return 0;
