@@ -210,10 +210,10 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 				if((*pright)<len){
 					if(*(ch+1)=='/'){
 						possible_category = T_Comment_Line;
-						//(*pright) = len;
 						return false;
 					}else if(*(ch+1)=='*'){
 						possible_category = T_Comment_Multiple;
+						(*pright)++;
 						return false;
 					}else{
 						tokenBuffer[0]=*ch;
@@ -441,6 +441,11 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 	}
 
 	if(possible_category == T_Comment_Multiple){
+		if(*ch == '*' && *(ch+1) == '/'){
+			deterministic_category = T_Comment_Multiple;
+			possible_category = T_NULL;
+			return true;
+		}else
 			return false;
 	}
 
@@ -475,6 +480,13 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 	
 	while(right < stringLen && left <=right){
 		if(newTokenEnd(tokenBuffer,&inputLine[right],&left, &right, stringLen-1)){
+			if(deterministic_category == T_Comment_Multiple){
+				possible_category = T_NULL;
+				right+=2;
+				left = right;
+				err_num = ERR_NULL;
+				continue;
+			}
 			fputs(tokenBuffer, outputfile);
 			if(err_num!=ERR_NULL){
 				print_errors(err_num, tokenBuffer, cur_row);
@@ -584,10 +596,12 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 				possible_category = T_NULL;
 				break;
 			}
-			if(space_flag == false){
+			if(possible_category == T_Comment_Multiple){
+				right++;
+			}else if(space_flag == false){
 				tokenBuffer[right-left]=inputLine[right];
 				right++;
-			}
+			}else{;}
 		}
 	}
 	return 0;
