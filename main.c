@@ -494,7 +494,7 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 				continue;
 			}
 			//fputs(tokenBuffer, outputfile);
-			if(err_num!=ERR_NULL){
+			if(err_num!=ERR_NULL && err_num != ERR_TooLongVariable){
 				print_errors(err_num, tokenBuffer, cur_row);
 			}else{
 			if(deterministic_category == T_Identifier){
@@ -583,7 +583,15 @@ int getTokens(char *inputLine, int cur_row, FILE* outputfile){
 					printf("%s\t\tline %d cols %d-%d is T_StringConstant (value = %s)\n", tokenBuffer, cur_row, left+1, right+1, tokenBuffer);
 					break;
 				case T_Identifier:
-					printf("%s\t\tline %d cols %d-%d is T_Identifier\n", tokenBuffer, cur_row, left+1, right+1);
+					if(err_num == ERR_TooLongVariable){
+						printf("\n*** Error line %d.\n", cur_row);
+						printf("*** Inditifier too long: \"%s\".\n\n", tokenBuffer);
+						printf("%s\t\tline %d cols %d-%d is T_Identifier ", tokenBuffer, cur_row, left+1, right+1);
+						tokenBuffer[31]='\0';
+						printf("(truncated to %s)\n", tokenBuffer);
+					}else{
+						printf("%s\t\tline %d cols %d-%d is T_Identifier\n", tokenBuffer, cur_row, left+1, right+1);
+					}
 					break;
 				case T_Others:
 					printf("%s\t\tline %d cols %d-%d is '%s'\n", tokenBuffer, cur_row, left+1, right+1, tokenBuffer);
@@ -737,7 +745,13 @@ void findMacroAndReplace(char* input, char* output, int row){
 				macro_symbol[right-left] = '\0';
 				right++;
 				left = right;
-				state = 3;
+				if(macro_symbol[0]>='0' && macro_symbol[0]<='9'){
+					print_errors(ERR_InvalidDirective,NULL,row);
+					macro_new_line[0]='\0';
+					break;
+				}else{
+					state = 3;
+				}
 			}else{
 				print_errors(ERR_InvalidDirective,NULL,row);
 				macro_new_line[0]='\0';
