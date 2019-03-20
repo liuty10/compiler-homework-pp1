@@ -61,10 +61,11 @@ VarDecl vardecl(){
 
 }
 
-*************************************************
+**************** remove left recursions ***************************
 
 Expr-> comparision+, logic(&&, ||)
 Expr-> arithmetric+, comp(>=, >, <, <=, ==)
 arithmetic -> product+, add(+,-)
 product-> factors+, mul(*,/,%)
-factors-> constant | lvalue|(expr)
+factors-> !factor|-factor|ele
+ele -> constant | lvalue|(expr)
