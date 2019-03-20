@@ -60,3 +60,11 @@ FuncDecl fundecl(){
 VarDecl vardecl(){
 
 }
+
+*************************************************
+
+Expr-> comparision+, logic(&&, ||)
+Expr-> arithmetric+, comp(>=, >, <, <=, ==)
+arithmetic -> product+, add(+,-)
+product-> factors+, mul(*,/,%)
+factors-> constant | lvalue|(expr)
