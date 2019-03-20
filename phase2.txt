@@ -1,0 +1,62 @@
+class Program{
+   List<Decl> decls;
+}
+class Decl{
+   String type;
+   String ident;
+}
+class VarDecl{
+
+}
+class FuncDecl{
+   List<Var> formals;
+   StmtBlock 
+}
+List<Token> tokens;
+
+void main(){
+    try{
+        tokens = readTokens();
+        Program prog = program();
+        prog.print();
+    }catch(ParseError e){
+        print(e, tokens);
+    }
+}
+
+Program program(){
+    Program prog = new Program();
+    while(index < tokens.size()){
+        prog.addDecl(decl())
+    }
+    return prog;
+}
+
+Decl decl(){
+    try{
+        rem = index;
+        FuncDecl fd = fundecl();
+        return fd;
+    }catch(ParseError e){
+        index = rem;
+        VarDecl vd = vardecl();
+        return vd;
+    }
+}
+FuncDecl fundecl(){
+    FuncDecl = new FuncDecl();
+    if(token[index] is a type or void){
+        fd.type = token[index]; index++;
+        fd.ident = match(T_ident, token[index])
+        match(T_LP, token[index])
+        fd.formals = formals();
+        match(T_RP, token[index]);
+        fd.stmtb = stmtBlock();
+    }else{
+        throw error;
+    }
+
+}
+VarDecl vardecl(){
+
+}
