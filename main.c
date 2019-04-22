@@ -207,7 +207,8 @@ bool newTokenEnd(char* tokenBuffer, char *ch, int *pleft, int *pright, int len){
 					tokenBuffer[2]='\0';
 					deterministic_category = T_Logic_And;
 					possible_category = T_NULL;
-					(*pleft)++;
+					//(*pleft)++;
+					(*pright)++;
 					return true;
 				}else{
 					print_errors(ERR_Others, tokenBuffer,0);
